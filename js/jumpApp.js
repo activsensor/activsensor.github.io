@@ -10,6 +10,7 @@ import {
 const permBtn = document.getElementById('perm-btn');
 const dot = document.getElementById('dot');
 const demoArea = document.getElementById('demo-area');
+const resultsDiv = document.getElementById('results');
 
 let permissionGranted = false;
 let capturing = false;
@@ -17,6 +18,7 @@ let motionData = [];
 let orientationData = [];
 let audioCtx;
 let midiOutput;
+let chart;
 
 function dot(a, b) {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -102,7 +104,8 @@ function detectJumpEvents(samples, opts = {}) {
 function analyzeJumps() {
   const events = detectJumpEvents(motionData);
   if (!events.length) {
-    console.log('No se detectaron saltos');
+    resultsDiv.innerHTML =
+      '<p class="text-center text-gray-500">No se detectaron saltos</p>';
     return;
   }
 
@@ -115,8 +118,83 @@ function analyzeJumps() {
   });
 
   const summary = summarizeSeries(events);
-  console.log('Saltos detectados:', items);
-  console.log('Conteo:', summary.count, 'Cadencia (saltos/min):', summary.cadence);
+  renderResults(items, summary);
+}
+
+function renderResults(items, summary) {
+  resultsDiv.innerHTML = '';
+
+  const cards = document.createElement('div');
+  cards.className = 'grid grid-cols-1 sm:grid-cols-2 gap-4';
+
+  if (summary) {
+    const summaryCard = document.createElement('div');
+    summaryCard.className = 'bg-white p-4 rounded shadow';
+    summaryCard.innerHTML = `
+      <h3 class="font-semibold mb-2">Resumen</h3>
+      <p><span class="font-medium">Conteo:</span> ${summary.count}</p>
+      <p><span class="font-medium">Cadencia:</span> ${summary.cadence
+        .toFixed(2)} saltos/min</p>
+    `;
+    cards.appendChild(summaryCard);
+  }
+
+  items.forEach((item, idx) => {
+    const card = document.createElement('div');
+    card.className = 'bg-white p-4 rounded shadow';
+    card.innerHTML = `
+      <h3 class="font-semibold mb-2">Salto ${idx + 1}</h3>
+      <p><span class="font-medium">Tiempo de vuelo:</span> ${item.tf
+        .toFixed(2)} s</p>
+      <p><span class="font-medium">Altura:</span> ${item.h
+        .toFixed(2)} m</p>
+      <p><span class="font-medium">Tiempo de contacto:</span> ${item.tc
+        .toFixed(2)} s</p>
+      <p><span class="font-medium">RSI:</span> ${item.rsi.toFixed(2)}</p>
+    `;
+    cards.appendChild(card);
+  });
+
+  resultsDiv.appendChild(cards);
+
+  const canvas = document.createElement('canvas');
+  canvas.id = 'jump-chart';
+  canvas.className = 'w-full h-48';
+  resultsDiv.appendChild(canvas);
+
+  const ctx = canvas.getContext('2d');
+  const t0 = motionData[0]?.t || 0;
+  const labels = motionData.map((s) => ((s.t - t0) / 1000).toFixed(2));
+  const data = motionData.map((s) => s.az);
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Aceleración Z (m/s²)',
+          data,
+          borderColor: 'rgb(59,130,246)',
+          backgroundColor: 'rgba(59,130,246,0.2)',
+          borderWidth: 2,
+          pointRadius: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          title: { display: true, text: 'Tiempo (s)' },
+        },
+        y: {
+          title: { display: true, text: 'm/s²' },
+        },
+      },
+    },
+  });
 }
 
 function initAudio() {
