@@ -311,9 +311,11 @@ function processMotion(ev) {
       lastTapTs = now;
     }
   }
+  const f = filterNoise(ax, ay, az);
   if (capturing && !hasSensorAPI) {
-    const f = filterNoise(ax, ay, az);
     motionData.push({ t: now, ax: f.ax, ay: f.ay, az: f.az });
+  }
+  if (!hasSensorAPI) {
     const x = f.ax * 5;
     const y = f.ay * 5;
     dotEl.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
@@ -323,6 +325,12 @@ function processMotion(ev) {
 function startSensorListener() {
   if (sensorListening) return;
   window.addEventListener('devicemotion', processMotion, { passive: true });
+  window.addEventListener('deviceorientation', handleOrientation);
+  if (hasSensorAPI) {
+    accelSensor = new LinearAccelerationSensor({ frequency: 60 });
+    accelSensor.addEventListener('reading', handleSensorReading);
+    accelSensor.start();
+  }
   sensorListening = true;
   setLed(true);
 }
@@ -333,7 +341,9 @@ function handleSensorReading() {
     accelSensor?.y || 0,
     accelSensor?.z || 0
   );
-  motionData.push({ t: performance.now(), ax: f.ax, ay: f.ay, az: f.az });
+  if (capturing) {
+    motionData.push({ t: performance.now(), ax: f.ax, ay: f.ay, az: f.az });
+  }
 
   const x = f.ax * 5;
   const y = f.ay * 5;
@@ -341,36 +351,23 @@ function handleSensorReading() {
 }
 
 function handleOrientation(ev) {
-  orientationData.push({
-    t: ev.timeStamp,
-    alpha: ev.alpha || 0,
-    beta: ev.beta || 0,
-    gamma: ev.gamma || 0,
-  });
+  if (capturing) {
+    orientationData.push({
+      t: ev.timeStamp,
+      alpha: ev.alpha || 0,
+      beta: ev.beta || 0,
+      gamma: ev.gamma || 0,
+    });
+  }
 }
 
 function startCapture() {
   motionData = [];
   orientationData = [];
-
-  if (hasSensorAPI) {
-    accelSensor = new LinearAccelerationSensor({ frequency: 60 });
-    accelSensor.addEventListener('reading', handleSensorReading);
-    accelSensor.start();
-  }
-  window.addEventListener('deviceorientation', handleOrientation);
   capturing = true;
 }
 
 function stopCapture() {
-  if (hasSensorAPI) {
-    if (accelSensor) {
-      accelSensor.removeEventListener('reading', handleSensorReading);
-      accelSensor.stop();
-      accelSensor = null;
-    }
-  }
-  window.removeEventListener('deviceorientation', handleOrientation);
   capturing = false;
   console.log('Captura detenida. Muestras:', motionData.length, orientationData.length);
   analyzeJumps();
