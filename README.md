@@ -17,8 +17,8 @@ A simple web app that displays real-time data from device motion sensors and ren
    ```bash
    npx http-server
    ```
-   The site will be available on `http://localhost:8080` by default.
-2. Alternatively, visit the hosted version at [https://activsensor.github.io](https://activsensor.github.io).
+   The site will be available on `http://localhost:8080/test.html` by default.
+2. Alternatively, visit the hosted version at [https://activsensor.github.io/test.html](https://activsensor.github.io/test.html).
 3. When prompted by the browser, grant motion and orientation permissions. Some platforms (e.g. iOS/Safari) may require enabling **Motion & Orientation Access** in settings.
 
 ## Libraries and compatibility
