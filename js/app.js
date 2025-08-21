@@ -15,9 +15,11 @@ class SensorController {
     this.labelBuffer = [];
 
     // Element for displaying messages
-    this.messageEl = document.createElement('div');
+    this.messageEl = document.getElementById('message') || document.createElement('div');
     this.messageEl.id = 'message';
-    document.body.appendChild(this.messageEl);
+    if (!this.messageEl.parentElement) {
+      document.body.appendChild(this.messageEl);
+    }
 
     this.createCharts();
     this.init3DScene();
@@ -167,5 +169,35 @@ class SensorController {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  new SensorController();
+  const button = document.getElementById('enableMotion');
+  const messageEl = document.getElementById('message');
+
+  button.addEventListener('click', async () => {
+    messageEl.textContent = '';
+
+    const motionPerm = typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
+    const orientationPerm = typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function';
+
+    try {
+      if (motionPerm) {
+        const res = await DeviceMotionEvent.requestPermission();
+        if (res !== 'granted') throw new Error('denied');
+      }
+      if (orientationPerm) {
+        const res = await DeviceOrientationEvent.requestPermission();
+        if (res !== 'granted') throw new Error('denied');
+      }
+    } catch (err) {
+      messageEl.textContent = 'Permission to access motion/orientation was denied.';
+      return;
+    }
+
+    if (!motionPerm && !orientationPerm && (typeof DeviceMotionEvent === 'undefined' || typeof DeviceOrientationEvent === 'undefined')) {
+      messageEl.textContent = 'Motion and orientation APIs are not available on this device.';
+      return;
+    }
+
+    button.style.display = 'none';
+    new SensorController();
+  });
 });
