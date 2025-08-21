@@ -9,7 +9,10 @@ class SensorController {
       RelativeOrientationSensor: window.RelativeOrientationSensor
     };
     this.sensor = null;
+    // Maintain a fixed length history for chart data
     this.maxPoints = 100;
+    this.dataBuffers = { x: [], y: [], z: [] };
+    this.labelBuffer = [];
 
     // Element for displaying messages
     this.messageEl = document.createElement('div');
@@ -26,35 +29,34 @@ class SensorController {
   }
 
   createCharts() {
-    const chartOptions = axis => ({
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [
-          {
-            label: axis.toUpperCase(),
-            data: [],
-            borderColor: axis === 'x' ? 'red' : axis === 'y' ? 'green' : 'blue',
-            fill: false,
-            tension: 0.1
+    const colors = { x: 'red', y: 'green', z: 'blue' };
+    this.charts = {};
+    ['x', 'y', 'z'].forEach(axis => {
+      const ctx = document.getElementById(`chart-${axis}`);
+      this.charts[axis] = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: axis.toUpperCase(),
+              data: [],
+              borderColor: colors[axis],
+              fill: false,
+              tension: 0.1
+            }
+          ]
+        },
+        options: {
+          animation: false,
+          responsive: true,
+          scales: {
+            x: { display: false },
+            y: { suggestedMin: -10, suggestedMax: 10 }
           }
-        ]
-      },
-      options: {
-        animation: false,
-        responsive: true,
-        scales: {
-          x: { display: false },
-          y: { suggestedMin: -10, suggestedMax: 10 }
         }
-      }
+      });
     });
-
-    this.charts = {
-      x: new Chart(document.getElementById('chart-x'), chartOptions('x')),
-      y: new Chart(document.getElementById('chart-y'), chartOptions('y')),
-      z: new Chart(document.getElementById('chart-z'), chartOptions('z'))
-    };
   }
 
   log(message) {
@@ -107,20 +109,21 @@ class SensorController {
 
   pushData(x, y, z) {
     const timestamp = Date.now();
-    ['x', 'y', 'z'].forEach(axis => {
-      this.charts[axis].data.labels.push(timestamp);
-      if (this.charts[axis].data.labels.length > this.maxPoints) {
-        this.charts[axis].data.labels.shift();
-      }
-    });
+    this.labelBuffer.push(timestamp);
+    if (this.labelBuffer.length > this.maxPoints) {
+      this.labelBuffer.shift();
+    }
 
     const axes = { x, y, z };
     Object.keys(axes).forEach(axis => {
-      const chart = this.charts[axis];
-      chart.data.datasets[0].data.push(axes[axis]);
-      if (chart.data.datasets[0].data.length > this.maxPoints) {
-        chart.data.datasets[0].data.shift();
+      const buffer = this.dataBuffers[axis];
+      buffer.push(axes[axis]);
+      if (buffer.length > this.maxPoints) {
+        buffer.shift();
       }
+      const chart = this.charts[axis];
+      chart.data.labels = this.labelBuffer;
+      chart.data.datasets[0].data = buffer;
       chart.update('none');
     });
   }
