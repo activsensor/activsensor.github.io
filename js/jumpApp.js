@@ -1,5 +1,4 @@
 import {
-  createDoubleTapTrigger,
   flightTime,
   heightFromFlightTime,
   contactTime,
@@ -9,9 +8,9 @@ import {
 
 const permBtn = document.getElementById('perm-btn');
 const dotEl = document.getElementById('dot');
-const demoArea = document.getElementById('demo-area');
 const resultsDiv = document.getElementById('results');
 const countdownEl = document.getElementById('countdown');
+const ledEl = document.getElementById('sensor-led');
 const bodyEl = document.body;
 const defaultBg = getComputedStyle(bodyEl).backgroundColor;
 
@@ -26,6 +25,12 @@ let audioCtx;
 let midiOutput;
 let chart;
 let accelSensor;
+let lastTapTs = 0;
+let sensorListening = false;
+
+const TAP_THRESHOLD = 15; // m/s^2 above gravity
+const TAP_WINDOW = 400; // ms between taps
+const NOISE_FLOOR = 0.1; // m/s^2 filter to ignore noise
 
 function dotProd(a, b) {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -242,61 +247,96 @@ function initAudio() {
   }
 }
 
-function playBeepSequence() {
-  const times = [0, 0.2, 0.4, 0.6];
+function setLed(on) {
+  ledEl.classList.toggle('bg-green-500', on);
+  ledEl.classList.toggle('bg-red-500', !on);
+}
+
+function playBeep(long = false) {
+  const duration = long ? 0.3 : 0.15;
   if (midiOutput) {
+    const note = long ? 80 : 60;
     const base = performance.now();
-    times.forEach((t, i) => {
-      const note = i === 3 ? 80 : 60;
-      midiOutput.send([0x90, note, 0x7f], base + t * 1000);
-      midiOutput.send([0x80, note, 0x40], base + (t + 0.15) * 1000);
-    });
+    midiOutput.send([0x90, note, 0x7f], base);
+    midiOutput.send([0x80, note, 0x40], base + duration * 1000);
   } else if (audioCtx) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.frequency.value = long ? 880 : 440;
+    gain.gain.value = 0.2;
+    osc.connect(gain).connect(audioCtx.destination);
     const now = audioCtx.currentTime;
-    times.forEach((t, i) => {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.frequency.value = i === 3 ? 880 : 440;
-      gain.gain.value = 0.2;
-      osc.connect(gain).connect(audioCtx.destination);
-      osc.start(now + t);
-      osc.stop(now + t + 0.15);
-    });
+    osc.start(now);
+    osc.stop(now + duration);
   }
 }
 
-function startCountdown() {
-  const numbers = ['3', '2', '1'];
+function startCountdown(onEnd) {
+  let count = 3;
   countdownEl.classList.remove('hidden');
-  numbers.forEach((num, i) => {
-    setTimeout(() => {
-      countdownEl.textContent = num;
-      if (i === numbers.length - 1) {
-        setTimeout(() => countdownEl.classList.add('hidden'), 200);
-      }
-    }, i * 200);
-  });
+  const tick = () => {
+    countdownEl.textContent = String(count);
+    playBeep(count === 0);
+    if (count === 0) {
+      setTimeout(() => countdownEl.classList.add('hidden'), 500);
+      if (typeof onEnd === 'function') onEnd();
+    } else {
+      count--;
+      setTimeout(tick, 1000);
+    }
+  };
+  tick();
 }
 
-function handleMotion(ev) {
-  const ax = ev.accelerationIncludingGravity?.x || 0;
-  const ay = ev.accelerationIncludingGravity?.y || 0;
-  const az = ev.accelerationIncludingGravity?.z || 0;
-  motionData.push({ t: ev.timeStamp, ax, ay, az });
+function filterNoise(ax, ay, az) {
+  return {
+    ax: Math.abs(ax) < NOISE_FLOOR ? 0 : ax,
+    ay: Math.abs(ay) < NOISE_FLOOR ? 0 : ay,
+    az: Math.abs(az) < NOISE_FLOOR ? 0 : az,
+  };
+}
 
-  const x = ax * 5;
-  const y = ay * 5;
-  dotEl.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+function processMotion(ev) {
+  const acc = ev.accelerationIncludingGravity || ev.acceleration || {};
+  const ax = acc.x || 0;
+  const ay = acc.y || 0;
+  const az = acc.z || 0;
+  const mag = Math.hypot(ax, ay, az);
+  const now = ev.timeStamp;
+  if (Math.abs(mag - 9.81) > TAP_THRESHOLD) {
+    if (now - lastTapTs < TAP_WINDOW) {
+      lastTapTs = 0;
+      onDoubleTap();
+    } else {
+      lastTapTs = now;
+    }
+  }
+  if (capturing && !hasSensorAPI) {
+    const f = filterNoise(ax, ay, az);
+    motionData.push({ t: now, ax: f.ax, ay: f.ay, az: f.az });
+    const x = f.ax * 5;
+    const y = f.ay * 5;
+    dotEl.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+  }
+}
+
+function startSensorListener() {
+  if (sensorListening) return;
+  window.addEventListener('devicemotion', processMotion, { passive: true });
+  sensorListening = true;
+  setLed(true);
 }
 
 function handleSensorReading() {
-  const ax = accelSensor?.x || 0;
-  const ay = accelSensor?.y || 0;
-  const az = accelSensor?.z || 0;
-  motionData.push({ t: performance.now(), ax, ay, az });
+  const f = filterNoise(
+    accelSensor?.x || 0,
+    accelSensor?.y || 0,
+    accelSensor?.z || 0
+  );
+  motionData.push({ t: performance.now(), ax: f.ax, ay: f.ay, az: f.az });
 
-  const x = ax * 5;
-  const y = ay * 5;
+  const x = f.ax * 5;
+  const y = f.ay * 5;
   dotEl.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
 }
 
@@ -317,8 +357,6 @@ function startCapture() {
     accelSensor = new LinearAccelerationSensor({ frequency: 60 });
     accelSensor.addEventListener('reading', handleSensorReading);
     accelSensor.start();
-  } else {
-    window.addEventListener('devicemotion', handleMotion);
   }
   window.addEventListener('deviceorientation', handleOrientation);
   capturing = true;
@@ -331,8 +369,6 @@ function stopCapture() {
       accelSensor.stop();
       accelSensor = null;
     }
-  } else {
-    window.removeEventListener('devicemotion', handleMotion);
   }
   window.removeEventListener('deviceorientation', handleOrientation);
   capturing = false;
@@ -343,10 +379,10 @@ function stopCapture() {
 function onDoubleTap() {
   if (!permissionGranted) return;
   if (!capturing) {
-    playBeepSequence();
-    startCountdown();
-    bodyEl.style.backgroundColor = 'rgba(255,0,0,0.3)';
-    startCapture();
+    startCountdown(() => {
+      bodyEl.style.backgroundColor = 'rgba(255,0,0,0.3)';
+      startCapture();
+    });
   } else {
     stopCapture();
     bodyEl.style.backgroundColor = defaultBg;
@@ -364,6 +400,7 @@ function requestPermission() {
         if (res === 'granted') {
           permissionGranted = true;
           permBtn.classList.add('hidden');
+          startSensorListener();
         }
       })
       .catch(console.error);
@@ -376,6 +413,7 @@ function requestPermission() {
   } else {
     permissionGranted = true;
     permBtn.classList.add('hidden');
+    startSensorListener();
   }
 }
 
@@ -384,8 +422,9 @@ if (isIOS) {
 } else {
   permissionGranted = true;
   permBtn.classList.add('hidden');
+  startSensorListener();
 }
 
 initAudio();
-createDoubleTapTrigger(demoArea, onDoubleTap);
+// Sensor-based double tap detection is active; no DOM trigger needed.
 
