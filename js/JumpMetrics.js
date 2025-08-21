@@ -133,7 +133,7 @@ export function summarizeSeries(events, g = G0) {
  *
  * @param {Element|string} target - Elemento DOM o selector CSS.
  * @param {Function} [onDoubleTap] - Callback opcional al detectar doble toque.
- * @param {number} [thresholdMs=350] - Máxima separación entre toques (ms).
+ * @param {number} [thresholdMs=400] - Máxima separación entre toques (ms).
  * @returns {Function} Función para desuscribir (remover listeners).
  *
  * @example
@@ -145,7 +145,7 @@ export function summarizeSeries(events, g = G0) {
  */
 export function createDoubleTapTrigger(target, onDoubleTap = () => {
   console.log('⏺️ Doble toque detectado: iniciar captura');
-}, thresholdMs = 350) {
+}, thresholdMs = 400) {
   const el = typeof target === 'string' ? document.querySelector(target) : target;
   if (!el) throw new Error('createDoubleTapTrigger: no se encontró el elemento objetivo.');
 
