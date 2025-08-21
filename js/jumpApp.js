@@ -30,7 +30,8 @@ let sensorListening = false;
 
 const TAP_THRESHOLD = 15; // m/s^2 above gravity
 const TAP_WINDOW = 400; // ms between taps
-const NOISE_FLOOR = 0.1; // m/s^2 filter to ignore noise
+const NOISE_FLOOR = 0.1; // m/s^2 filter to ignore noise on X/Z
+const NOISE_FLOOR_Y = 3; // m/s^2 filter to ignore noise on Y
 
 function dotProd(a, b) {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -291,7 +292,7 @@ function startCountdown(onEnd) {
 function filterNoise(ax, ay, az) {
   return {
     ax: Math.abs(ax) < NOISE_FLOOR ? 0 : ax,
-    ay: Math.abs(ay) < NOISE_FLOOR ? 0 : ay,
+    ay: Math.abs(ay) < NOISE_FLOOR_Y ? 0 : ay,
     az: Math.abs(az) < NOISE_FLOOR ? 0 : az,
   };
 }
