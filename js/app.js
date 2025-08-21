@@ -95,7 +95,9 @@ class SensorController {
         sensor.quaternion[3]
       );
     } else if ('x' in sensor && 'y' in sensor && 'z' in sensor) {
-      this.cube.rotation.set(sensor.x || 0, sensor.y || 0, sensor.z || 0);
+      const order = sensor.order || 'XYZ';
+      const euler = new THREE.Euler(sensor.x || 0, sensor.y || 0, sensor.z || 0, order);
+      this.cube.quaternion.setFromEuler(euler);
     }
   }
 
@@ -155,11 +157,19 @@ class SensorController {
           return;
         }
         this.orientationHandler = event => {
-          const x = event.alpha || 0;
-          const y = event.beta || 0;
-          const z = event.gamma || 0;
+          const alpha = event.alpha || 0;
+          const beta = event.beta || 0;
+          const gamma = event.gamma || 0;
+
+          const x = THREE.MathUtils.degToRad(beta);
+          const y = THREE.MathUtils.degToRad(gamma);
+          const z = THREE.MathUtils.degToRad(alpha);
+
+          const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
+          const order = isIOS ? 'ZXY' : 'YXZ';
+
           this.pushData(x, y, z);
-          this.update3D({ x, y, z });
+          this.update3D({ x, y, z, order });
         };
         window.addEventListener('deviceorientation', this.orientationHandler);
         this.log('');
