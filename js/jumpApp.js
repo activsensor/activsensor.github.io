@@ -1,4 +1,11 @@
-import { createDoubleTapTrigger } from './JumpMetrics.js';
+import {
+  createDoubleTapTrigger,
+  flightTime,
+  heightFromFlightTime,
+  contactTime,
+  rsi,
+  summarizeSeries,
+} from './JumpMetrics.js';
 
 const permBtn = document.getElementById('perm-btn');
 const dot = document.getElementById('dot');
@@ -10,6 +17,107 @@ let motionData = [];
 let orientationData = [];
 let audioCtx;
 let midiOutput;
+
+function dot(a, b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+function norm(a) {
+  return Math.hypot(a[0], a[1], a[2]);
+}
+
+function detectJumpEvents(samples, opts = {}) {
+  const alpha = opts.alpha ?? 0.2;
+  const flightEpsMag = opts.flightEpsMag ?? 0.5;
+  const flightEpsVert = opts.flightEpsVert ?? 0.6;
+  const moveThresh = opts.moveThresh ?? 1.2;
+  const minFlight = opts.minFlight ?? 0.1;
+  const maxFlight = opts.maxFlight ?? 1.2;
+  const minContact = opts.minContact ?? 0.08;
+  if (!samples.length) return [];
+
+  const t0 = samples[0].t;
+  const calibMs = opts.calibMs ?? 500;
+  const calib = samples.filter((s) => s.t - t0 <= calibMs);
+  const gSum = calib.reduce(
+    (s, v) => [s[0] + v.ax, s[1] + v.ay, s[2] + v.az],
+    [0, 0, 0]
+  );
+  const gMean = gSum.map((v) => v / calib.length);
+  const g0 = norm(gMean);
+  const gUnit = gMean.map((v) => v / g0);
+
+  let aVertEma = 0;
+  let aTotEma = g0;
+  let inFlight = false;
+  let inMotion = false;
+  let tContactStart = null;
+  let tTakeoff = null;
+  const events = [];
+
+  for (const s of samples) {
+    const t = (s.t - t0) / 1000;
+    const aVec = [s.ax, s.ay, s.az];
+    const aVertInc = dot(aVec, gUnit);
+    const aVert = aVertInc - g0;
+    const aTot = norm(aVec);
+
+    aVertEma = alpha * aVert + (1 - alpha) * aVertEma;
+    aTotEma = alpha * aTot + (1 - alpha) * aTotEma;
+
+    const isFlight =
+      Math.abs(aTotEma - g0) < flightEpsMag &&
+      Math.abs(aVertEma) < flightEpsVert;
+    const hasMotion = Math.abs(aVertEma) > moveThresh;
+
+    if (!inFlight) {
+      if (hasMotion && !inMotion) {
+        inMotion = true;
+        tContactStart = t;
+      }
+      if (isFlight) {
+        inFlight = true;
+        tTakeoff = t;
+        if (tContactStart == null) {
+          tContactStart = Math.max(0, t - 0.2);
+        }
+      }
+    } else if (!isFlight) {
+      inFlight = false;
+      inMotion = false;
+      const tLanding = t;
+      const tf = tLanding - tTakeoff;
+      const tc = tTakeoff - (tContactStart ?? tTakeoff);
+      if (tf >= minFlight && tf <= maxFlight && tc >= minContact) {
+        events.push({ tContactStart, tTakeoff, tLanding });
+      }
+      tContactStart = null;
+      tTakeoff = null;
+    }
+  }
+
+  return events;
+}
+
+function analyzeJumps() {
+  const events = detectJumpEvents(motionData);
+  if (!events.length) {
+    console.log('No se detectaron saltos');
+    return;
+  }
+
+  const items = events.map((evt) => {
+    const tf = flightTime(evt);
+    const h = heightFromFlightTime(tf);
+    const tc = contactTime(evt);
+    const r = rsi(h, tc);
+    return { tf, h, tc, rsi: r, evt };
+  });
+
+  const summary = summarizeSeries(events);
+  console.log('Saltos detectados:', items);
+  console.log('Conteo:', summary.count, 'Cadencia (saltos/min):', summary.cadence);
+}
 
 function initAudio() {
   try {
@@ -80,7 +188,7 @@ function stopCapture() {
   window.removeEventListener('deviceorientation', handleOrientation);
   capturing = false;
   console.log('Captura detenida. Muestras:', motionData.length, orientationData.length);
-  // Aquí iría la fase de cálculo con los datos capturados
+  analyzeJumps();
 }
 
 function onDoubleTap() {
