@@ -123,6 +123,7 @@ function analyzeJumps() {
 
 function renderResults(items, summary) {
   resultsDiv.innerHTML = '';
+  permBtn.classList.add('hidden');
 
   const cards = document.createElement('div');
   cards.className = 'grid grid-cols-1 sm:grid-cols-2 gap-4';
@@ -195,6 +196,26 @@ function renderResults(items, summary) {
       },
     },
   });
+
+  const resetBtn = document.createElement('button');
+  resetBtn.id = 'reset-btn';
+  resetBtn.className = 'bg-gray-500 text-white px-4 py-2 rounded self-center';
+  resetBtn.textContent = 'Reset';
+  resetBtn.addEventListener('click', resetApp);
+  resultsDiv.appendChild(resetBtn);
+}
+
+function resetApp() {
+  motionData = [];
+  orientationData = [];
+  capturing = false;
+  if (chart) {
+    chart.destroy();
+    chart = null;
+  }
+  resultsDiv.innerHTML = '';
+  dot.style.transform = 'translate(-50%, -50%)';
+  permBtn.classList.remove('hidden');
 }
 
 function initAudio() {
