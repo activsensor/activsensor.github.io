@@ -11,6 +11,9 @@ const permBtn = document.getElementById('perm-btn');
 const dotEl = document.getElementById('dot');
 const demoArea = document.getElementById('demo-area');
 const resultsDiv = document.getElementById('results');
+const countdownEl = document.getElementById('countdown');
+const bodyEl = document.body;
+const defaultBg = getComputedStyle(bodyEl).backgroundColor;
 
 const isIOS = /iP(ad|hone|od)/i.test(navigator.userAgent);
 const hasSensorAPI = 'LinearAccelerationSensor' in window;
@@ -222,6 +225,8 @@ function resetApp() {
   if (isIOS) {
     permBtn.classList.remove('hidden');
   }
+  bodyEl.style.backgroundColor = defaultBg;
+  countdownEl.classList.add('hidden');
 }
 
 function initAudio() {
@@ -258,6 +263,19 @@ function playBeepSequence() {
       osc.stop(now + t + 0.15);
     });
   }
+}
+
+function startCountdown() {
+  const numbers = ['3', '2', '1'];
+  countdownEl.classList.remove('hidden');
+  numbers.forEach((num, i) => {
+    setTimeout(() => {
+      countdownEl.textContent = num;
+      if (i === numbers.length - 1) {
+        setTimeout(() => countdownEl.classList.add('hidden'), 200);
+      }
+    }, i * 200);
+  });
 }
 
 function handleMotion(ev) {
@@ -326,9 +344,13 @@ function onDoubleTap() {
   if (!permissionGranted) return;
   if (!capturing) {
     playBeepSequence();
+    startCountdown();
+    bodyEl.style.backgroundColor = 'rgba(255,0,0,0.3)';
     startCapture();
   } else {
     stopCapture();
+    bodyEl.style.backgroundColor = defaultBg;
+    countdownEl.classList.add('hidden');
   }
 }
 
