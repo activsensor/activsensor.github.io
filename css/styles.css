@@ -17,6 +17,20 @@ canvas {
   height: 200px;
 }
 
+@media (max-width: 640px) {
+  .charts {
+    grid-template-columns: 1fr;
+  }
+
+  canvas {
+    height: 12vh;
+  }
+
+  #chart-3d {
+    height: 24vh;
+  }
+}
+
 /* Typography for sensor selector */
 label,
 select {
