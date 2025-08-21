@@ -6,8 +6,8 @@
   <title>ActivSensor Demo</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 text-gray-800 flex flex-col items-center p-4">
-  <h1 class="text-2xl font-bold mb-4">Demo de Sensores</h1>
+  <body class="bg-gray-100 text-gray-800 flex flex-col items-center p-4">
+    <h1 class="text-2xl font-bold mb-4">Demo de Sensores</h1>
   <p class="mb-4 text-center max-w-md">
     Presiona el botón para habilitar el acceso a los sensores de movimiento y
     observa cómo el punto rojo sigue tus movimientos.
@@ -23,6 +23,7 @@
   <div id="results" class="mt-6 w-full max-w-md flex flex-col gap-4"></div>
 
   <div id="countdown" class="hidden fixed inset-0 flex items-center justify-center text-white text-8xl font-bold"></div>
+  <div id="sensor-led" class="fixed top-2 right-2 w-4 h-4 rounded-full bg-red-500 shadow"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/webmidi"></script>
