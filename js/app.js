@@ -20,6 +20,7 @@ class SensorController {
     document.body.appendChild(this.messageEl);
 
     this.createCharts();
+    this.init3DScene();
 
     const selector = document.getElementById('sensorSelector');
     selector.addEventListener('change', e => this.startSensor(e.target.value));
@@ -59,6 +60,41 @@ class SensorController {
     });
   }
 
+  init3DScene() {
+    const canvas = document.getElementById('chart-3d');
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    this.camera.position.z = 5;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    this.renderer.setSize(canvas.clientWidth || 300, canvas.clientHeight || 300);
+    const geometry = new THREE.BoxGeometry(1, 2, 0.1);
+    const material = new THREE.MeshNormalMaterial();
+    this.cube = new THREE.Mesh(geometry, material);
+    this.scene.add(this.cube);
+    this.animate();
+  }
+
+  animate() {
+    requestAnimationFrame(() => this.animate());
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  }
+
+  update3D(sensor) {
+    if (!this.cube) return;
+    if (sensor.quaternion) {
+      this.cube.quaternion.set(
+        sensor.quaternion[0],
+        sensor.quaternion[1],
+        sensor.quaternion[2],
+        sensor.quaternion[3]
+      );
+    } else if ('x' in sensor && 'y' in sensor && 'z' in sensor) {
+      this.cube.rotation.set(sensor.x || 0, sensor.y || 0, sensor.z || 0);
+    }
+  }
+
   log(message) {
     this.messageEl.textContent = message;
   }
@@ -87,6 +123,7 @@ class SensorController {
         const y = sensor.y ?? sensor.quaternion?.[1] ?? 0;
         const z = sensor.z ?? sensor.quaternion?.[2] ?? 0;
         this.pushData(x, y, z);
+        this.update3D(sensor);
       };
       sensor.onerror = event => {
         if (event.error?.name === 'NotAllowedError') {
