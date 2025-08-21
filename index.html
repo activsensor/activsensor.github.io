@@ -4,21 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Device Sensor Visualizer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
-  <h1>Device Sensor Visualizer</h1>
-  <p>This page displays live data from your device sensors and renders a 3D orientation view. Please grant motion and orientation permissions when prompted.</p>
+<body class="min-h-screen p-4 bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+  <h1 class="text-2xl font-bold mb-4">Device Sensor Visualizer</h1>
+  <p class="mb-4">This page displays live data from your device sensors and renders a 3D orientation view. Please grant motion and orientation permissions when prompted.</p>
 
-  <label for="sensorSelector">Select sensor:</label>
-  <select id="sensorSelector">
-    <option value="Accelerometer">Accelerometer</option>
-    <option value="GravitySensor">GravitySensor</option>
-    <option value="Gyroscope">Gyroscope</option>
-    <option value="LinearAccelerationSensor">LinearAccelerationSensor</option>
-    <option value="OrientationSensor">OrientationSensor</option>
-    <option value="RelativeOrientationSensor">RelativeOrientationSensor</option>
-  </select>
+  <div class="mb-4">
+    <label for="sensorSelector" class="mr-2 font-medium">Select sensor:</label>
+    <select id="sensorSelector" class="border rounded p-1">
+      <option value="Accelerometer">Accelerometer</option>
+      <option value="GravitySensor">GravitySensor</option>
+      <option value="Gyroscope">Gyroscope</option>
+      <option value="LinearAccelerationSensor">LinearAccelerationSensor</option>
+      <option value="OrientationSensor">OrientationSensor</option>
+      <option value="RelativeOrientationSensor">RelativeOrientationSensor</option>
+    </select>
+  </div>
 
   <div class="charts">
     <canvas id="chart-x"></canvas>

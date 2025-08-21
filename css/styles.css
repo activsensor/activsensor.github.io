@@ -1,1 +1,53 @@
-/* Placeholder styles */
+/* Layout container for charts */
+.charts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+/* Place 3D canvas below the three axis charts */
+#chart-3d {
+  grid-column: 1 / -1;
+  height: 300px;
+}
+
+/* Responsive canvas sizing */
+canvas {
+  width: 100%;
+  height: 200px;
+}
+
+/* Typography for sensor selector */
+label,
+select {
+  font-size: 1rem;
+}
+
+@media (min-width: 768px) {
+  canvas {
+    height: 300px;
+  }
+
+  #chart-3d {
+    height: 400px;
+  }
+
+  label,
+  select {
+    font-size: 1.25rem;
+  }
+}
+
+/* Light/Dark theme */
+body {
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #111827;
+    color: #f9fafb;
+  }
+}
+
