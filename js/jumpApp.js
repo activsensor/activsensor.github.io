@@ -8,9 +8,12 @@ import {
 } from './JumpMetrics.js';
 
 const permBtn = document.getElementById('perm-btn');
-const dot = document.getElementById('dot');
+const dotEl = document.getElementById('dot');
 const demoArea = document.getElementById('demo-area');
 const resultsDiv = document.getElementById('results');
+
+const isIOS = /iP(ad|hone|od)/i.test(navigator.userAgent);
+const hasSensorAPI = 'LinearAccelerationSensor' in window;
 
 let permissionGranted = false;
 let capturing = false;
@@ -19,8 +22,9 @@ let orientationData = [];
 let audioCtx;
 let midiOutput;
 let chart;
+let accelSensor;
 
-function dot(a, b) {
+function dotProd(a, b) {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
@@ -30,9 +34,9 @@ function norm(a) {
 
 function detectJumpEvents(samples, opts = {}) {
   const alpha = opts.alpha ?? 0.2;
-  const flightEpsMag = opts.flightEpsMag ?? 0.5;
-  const flightEpsVert = opts.flightEpsVert ?? 0.6;
-  const moveThresh = opts.moveThresh ?? 1.2;
+  const flightEpsMag = opts.flightEpsMag ?? 0.4;
+  const flightEpsVert = opts.flightEpsVert ?? 0.5;
+  const moveThresh = opts.moveThresh ?? 1.0;
   const minFlight = opts.minFlight ?? 0.1;
   const maxFlight = opts.maxFlight ?? 1.2;
   const minContact = opts.minContact ?? 0.08;
@@ -60,7 +64,7 @@ function detectJumpEvents(samples, opts = {}) {
   for (const s of samples) {
     const t = (s.t - t0) / 1000;
     const aVec = [s.ax, s.ay, s.az];
-    const aVertInc = dot(aVec, gUnit);
+    const aVertInc = dotProd(aVec, gUnit);
     const aVert = aVertInc - g0;
     const aTot = norm(aVec);
 
@@ -214,8 +218,10 @@ function resetApp() {
     chart = null;
   }
   resultsDiv.innerHTML = '';
-  dot.style.transform = 'translate(-50%, -50%)';
-  permBtn.classList.remove('hidden');
+  dotEl.style.transform = 'translate(-50%, -50%)';
+  if (isIOS) {
+    permBtn.classList.remove('hidden');
+  }
 }
 
 function initAudio() {
@@ -262,7 +268,18 @@ function handleMotion(ev) {
 
   const x = ax * 5;
   const y = ay * 5;
-  dot.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+  dotEl.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+}
+
+function handleSensorReading() {
+  const ax = accelSensor?.x || 0;
+  const ay = accelSensor?.y || 0;
+  const az = accelSensor?.z || 0;
+  motionData.push({ t: performance.now(), ax, ay, az });
+
+  const x = ax * 5;
+  const y = ay * 5;
+  dotEl.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
 }
 
 function handleOrientation(ev) {
@@ -277,13 +294,28 @@ function handleOrientation(ev) {
 function startCapture() {
   motionData = [];
   orientationData = [];
-  window.addEventListener('devicemotion', handleMotion);
+
+  if (hasSensorAPI) {
+    accelSensor = new LinearAccelerationSensor({ frequency: 60 });
+    accelSensor.addEventListener('reading', handleSensorReading);
+    accelSensor.start();
+  } else {
+    window.addEventListener('devicemotion', handleMotion);
+  }
   window.addEventListener('deviceorientation', handleOrientation);
   capturing = true;
 }
 
 function stopCapture() {
-  window.removeEventListener('devicemotion', handleMotion);
+  if (hasSensorAPI) {
+    if (accelSensor) {
+      accelSensor.removeEventListener('reading', handleSensorReading);
+      accelSensor.stop();
+      accelSensor = null;
+    }
+  } else {
+    window.removeEventListener('devicemotion', handleMotion);
+  }
   window.removeEventListener('deviceorientation', handleOrientation);
   capturing = false;
   console.log('Captura detenida. Muestras:', motionData.length, orientationData.length);
@@ -307,15 +339,30 @@ function requestPermission() {
   ) {
     DeviceMotionEvent.requestPermission()
       .then((res) => {
-        if (res === 'granted') permissionGranted = true;
+        if (res === 'granted') {
+          permissionGranted = true;
+          permBtn.classList.add('hidden');
+        }
       })
       .catch(console.error);
+    if (
+      typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function'
+    ) {
+      DeviceOrientationEvent.requestPermission().catch(console.error);
+    }
   } else {
     permissionGranted = true;
+    permBtn.classList.add('hidden');
   }
 }
 
-permBtn.addEventListener('click', requestPermission);
+if (isIOS) {
+  permBtn.addEventListener('click', requestPermission);
+} else {
+  permissionGranted = true;
+  permBtn.classList.add('hidden');
+}
 
 initAudio();
 createDoubleTapTrigger(demoArea, onDoubleTap);
