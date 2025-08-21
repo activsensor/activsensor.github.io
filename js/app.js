@@ -9,6 +9,8 @@ class SensorController {
       RelativeOrientationSensor: window.RelativeOrientationSensor
     };
     this.sensor = null;
+    this.motionHandler = null;
+    this.orientationHandler = null;
     // Maintain a fixed length history for chart data
     this.maxPoints = 100;
     this.dataBuffers = { x: [], y: [], z: [] };
@@ -108,12 +110,62 @@ class SensorController {
       this.sensor.onerror = null;
       this.sensor = null;
     }
+    if (this.motionHandler) {
+      window.removeEventListener('devicemotion', this.motionHandler);
+      this.motionHandler = null;
+    }
+    if (this.orientationHandler) {
+      window.removeEventListener('deviceorientation', this.orientationHandler);
+      this.orientationHandler = null;
+    }
   }
 
   startSensor(type) {
     this.stopSensor();
     const Constructor = this.sensorMap[type];
     if (typeof Constructor !== 'function') {
+      if (['LinearAccelerationSensor', 'Accelerometer', 'GravitySensor', 'Gyroscope'].includes(type)) {
+        if (!('ondevicemotion' in window)) {
+          this.log(`${type} is not supported on this device.`);
+          return;
+        }
+        this.motionHandler = event => {
+          let data;
+          if (type === 'LinearAccelerationSensor') {
+            data = event.acceleration;
+          } else if (type === 'Accelerometer' || type === 'GravitySensor') {
+            data = event.accelerationIncludingGravity;
+          } else if (type === 'Gyroscope') {
+            data = event.rotationRate;
+          }
+          const x = data?.x || 0;
+          const y = data?.y || 0;
+          const z = data?.z || 0;
+          this.pushData(x, y, z);
+          this.update3D({ x, y, z });
+        };
+        window.addEventListener('devicemotion', this.motionHandler);
+        this.log('');
+        return;
+      }
+
+      if (['OrientationSensor', 'RelativeOrientationSensor'].includes(type)) {
+        if (!('ondeviceorientation' in window)) {
+          this.log(`${type} is not supported on this device.`);
+          return;
+        }
+        this.orientationHandler = event => {
+          const x = event.alpha || 0;
+          const y = event.beta || 0;
+          const z = event.gamma || 0;
+          this.pushData(x, y, z);
+          this.update3D({ x, y, z });
+        };
+        window.addEventListener('deviceorientation', this.orientationHandler);
+        this.log('');
+        return;
+      }
+
       this.log(`${type} is not supported on this device.`);
       return;
     }
