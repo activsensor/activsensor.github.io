@@ -297,22 +297,24 @@ function filterNoise(ax, ay, az) {
   };
 }
 
-function processMotion(ev) {
-  const acc = ev.accelerationIncludingGravity || ev.acceleration || {};
-  const ax = acc.x || 0;
-  const ay = acc.y || 0;
-  const az = acc.z || 0;
-  const mag = Math.hypot(ax, ay, az);
-  const now = ev.timeStamp;
-  if (Math.abs(mag - 9.81) > TAP_THRESHOLD) {
-    if (now - lastTapTs < TAP_WINDOW) {
+function checkTap(f, timestamp) {
+  const mag = Math.hypot(f.ax, f.ay, f.az);
+  const delta = hasSensorAPI ? mag : Math.abs(mag - 9.81);
+  if (delta > TAP_THRESHOLD) {
+    if (timestamp - lastTapTs < TAP_WINDOW) {
       lastTapTs = 0;
       onDoubleTap();
     } else {
-      lastTapTs = now;
+      lastTapTs = timestamp;
     }
   }
-  const f = filterNoise(ax, ay, az);
+}
+
+function processMotion(ev) {
+  const acc = ev.accelerationIncludingGravity || ev.acceleration || {};
+  const now = ev.timeStamp;
+  const f = filterNoise(acc.x || 0, acc.y || 0, acc.z || 0);
+  checkTap(f, now);
   if (capturing && !hasSensorAPI) {
     motionData.push({ t: now, ax: f.ax, ay: f.ay, az: f.az });
   }
@@ -342,8 +344,10 @@ function handleSensorReading() {
     accelSensor?.y || 0,
     accelSensor?.z || 0
   );
+  const now = performance.now();
+  checkTap(f, now);
   if (capturing) {
-    motionData.push({ t: performance.now(), ax: f.ax, ay: f.ay, az: f.az });
+    motionData.push({ t: now, ax: f.ax, ay: f.ay, az: f.az });
   }
 
   const x = f.ax * 5;
