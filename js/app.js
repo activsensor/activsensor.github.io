@@ -215,7 +215,7 @@ class SensorController {
       this.labelBuffer.shift();
     }
 
-    const axes = { x, y, z };
+    const axes = { x, y: Math.abs(y) < 3 ? 0 : y, z };
     Object.keys(axes).forEach(axis => {
       const buffer = this.dataBuffers[axis];
       buffer.push(axes[axis]);
