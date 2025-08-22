@@ -13,6 +13,8 @@ import {
   SENSOR_TYPES,
 } from './settings.js';
 
+import useDoubleTap from '../client_app/src/hooks/useDoubleTap.js';
+
 const permBtn = document.getElementById('perm-btn');
 const dotEl = document.getElementById('dot');
 const yValueEl = document.getElementById('y-value');
@@ -35,7 +37,6 @@ let audioCtx;
 let midiOutput;
 let chart;
 let accelSensor;
-let lastTapTs = 0;
 let nextTapAllowedAt = 0;
 let sensorListening = false;
 
@@ -303,26 +304,11 @@ function filterNoise(ax, ay, az) {
   return { ax: fx, ay: fy, az: fz, mag };
 }
 
-function checkTap(f, timestamp) {
-  if (timestamp < nextTapAllowedAt) return;
-  const mag = f.mag;
-  const delta = hasSensorAPI ? mag : Math.abs(mag - 9.81);
-  if (delta > TAP_THRESHOLD) {
-    if (timestamp - lastTapTs < TAP_WINDOW) {
-      lastTapTs = 0;
-      onDoubleTap();
-    } else {
-      lastTapTs = timestamp;
-    }
-  }
-}
-
 function processMotion(ev) {
   const acc = ev.accelerationIncludingGravity || ev.acceleration || {};
   const now = ev.timeStamp;
   const f = filterNoise(acc.x || 0, acc.y || 0, acc.z || 0);
   yValueEl.textContent = f.mag.toFixed(2);
-  checkTap(f, now);
   if (capturing && !hasSensorAPI) {
     motionData.push({ t: now, ax: f.ax, ay: f.ay, az: f.az, mag: f.mag });
   }
@@ -354,7 +340,6 @@ function handleSensorReading() {
   );
   const now = performance.now();
   yValueEl.textContent = f.mag.toFixed(2);
-  checkTap(f, now);
   if (capturing) {
     motionData.push({ t: now, ax: f.ax, ay: f.ay, az: f.az, mag: f.mag });
   }
@@ -388,9 +373,11 @@ function stopCapture() {
 }
 
 function onDoubleTap() {
+  const now = performance.now();
+  if (now < nextTapAllowedAt) return;
   if (!permissionGranted) return;
   if (!capturing) {
-    nextTapAllowedAt = performance.now() + TAP_COOLDOWN; // ignore taps during countdown
+    nextTapAllowedAt = now + TAP_COOLDOWN; // ignore taps during countdown
     startCountdown(() => {
       bodyEl.style.backgroundColor = 'rgba(255,0,0,0.3)';
       startCapture();
@@ -400,7 +387,7 @@ function onDoubleTap() {
     stopCapture();
     bodyEl.style.backgroundColor = defaultBg;
     countdownEl.classList.add('hidden');
-    nextTapAllowedAt = performance.now() + TAP_COOLDOWN; // wait 3s before new start
+    nextTapAllowedAt = now + TAP_COOLDOWN; // wait 3s before new start
   }
 }
 
@@ -440,5 +427,9 @@ if (isIOS) {
 }
 
 initAudio();
-// Sensor-based double tap detection is active; no DOM trigger needed.
+useDoubleTap({
+  threshold: TAP_THRESHOLD,
+  window: TAP_WINDOW,
+  onDoubleTap,
+});
 
