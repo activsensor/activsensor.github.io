@@ -10,7 +10,6 @@ import {
   TAP_WINDOW,
   TAP_COOLDOWN,
   NOISE_FLOOR,
-  NOISE_FLOOR_Y,
   SENSOR_TYPES,
 } from './settings.js';
 
@@ -297,16 +296,16 @@ function startCountdown(onEnd) {
 }
 
 function filterNoise(ax, ay, az) {
-  return {
-    ax: Math.abs(ax) < NOISE_FLOOR ? 0 : ax,
-    ay: Math.abs(ay) < NOISE_FLOOR_Y ? 0 : ay,
-    az: Math.abs(az) < NOISE_FLOOR ? 0 : az,
-  };
+  const fx = Math.abs(ax) < NOISE_FLOOR ? 0 : ax;
+  const fy = Math.abs(ay) < NOISE_FLOOR ? 0 : ay;
+  const fz = Math.abs(az) < NOISE_FLOOR ? 0 : az;
+  const mag = Math.hypot(fx, fy, fz);
+  return { ax: fx, ay: fy, az: fz, mag };
 }
 
 function checkTap(f, timestamp) {
   if (timestamp < nextTapAllowedAt) return;
-  const mag = Math.hypot(f.ax, f.ay, f.az);
+  const mag = f.mag;
   const delta = hasSensorAPI ? mag : Math.abs(mag - 9.81);
   if (delta > TAP_THRESHOLD) {
     if (timestamp - lastTapTs < TAP_WINDOW) {
@@ -322,10 +321,10 @@ function processMotion(ev) {
   const acc = ev.accelerationIncludingGravity || ev.acceleration || {};
   const now = ev.timeStamp;
   const f = filterNoise(acc.x || 0, acc.y || 0, acc.z || 0);
-  yValueEl.textContent = f.ay.toFixed(2);
+  yValueEl.textContent = f.mag.toFixed(2);
   checkTap(f, now);
   if (capturing && !hasSensorAPI) {
-    motionData.push({ t: now, ax: f.ax, ay: f.ay, az: f.az });
+    motionData.push({ t: now, ax: f.ax, ay: f.ay, az: f.az, mag: f.mag });
   }
   if (!hasSensorAPI) {
     const x = f.ax * 5;
@@ -354,10 +353,10 @@ function handleSensorReading() {
     accelSensor?.z || 0
   );
   const now = performance.now();
-  yValueEl.textContent = f.ay.toFixed(2);
+  yValueEl.textContent = f.mag.toFixed(2);
   checkTap(f, now);
   if (capturing) {
-    motionData.push({ t: now, ax: f.ax, ay: f.ay, az: f.az });
+    motionData.push({ t: now, ax: f.ax, ay: f.ay, az: f.az, mag: f.mag });
   }
 
   const x = f.ax * 5;
