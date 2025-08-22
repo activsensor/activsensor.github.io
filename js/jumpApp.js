@@ -26,10 +26,12 @@ let midiOutput;
 let chart;
 let accelSensor;
 let lastTapTs = 0;
+let nextTapAllowedAt = 0;
 let sensorListening = false;
 
 const TAP_THRESHOLD = 1; // m/s^2 above gravity
 const TAP_WINDOW = 500; // max ms between taps
+const TAP_COOLDOWN = 3000; // ms to wait before next double tap
 const NOISE_FLOOR = 0.1; // m/s^2 filter to ignore noise on X/Z
 const NOISE_FLOOR_Y = 3; // only keep Y values greater than this
 
@@ -298,6 +300,7 @@ function filterNoise(ax, ay, az) {
 }
 
 function checkTap(f, timestamp) {
+  if (timestamp < nextTapAllowedAt) return;
   const mag = Math.hypot(f.ax, f.ay, f.az);
   const delta = hasSensorAPI ? mag : Math.abs(mag - 9.81);
   if (delta > TAP_THRESHOLD) {
@@ -381,14 +384,17 @@ function stopCapture() {
 function onDoubleTap() {
   if (!permissionGranted) return;
   if (!capturing) {
+    nextTapAllowedAt = performance.now() + TAP_COOLDOWN; // ignore taps during countdown
     startCountdown(() => {
       bodyEl.style.backgroundColor = 'rgba(255,0,0,0.3)';
       startCapture();
+      nextTapAllowedAt = performance.now() + TAP_COOLDOWN; // wait 3s before allowing stop
     });
   } else {
     stopCapture();
     bodyEl.style.backgroundColor = defaultBg;
     countdownEl.classList.add('hidden');
+    nextTapAllowedAt = performance.now() + TAP_COOLDOWN; // wait 3s before new start
   }
 }
 
