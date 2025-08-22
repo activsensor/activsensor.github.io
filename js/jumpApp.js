@@ -11,6 +11,7 @@ import {
   TAP_COOLDOWN,
   NOISE_FLOOR,
   NOISE_FLOOR_Y,
+  SENSOR_TYPES,
 } from './settings.js';
 
 const permBtn = document.getElementById('perm-btn');
@@ -23,7 +24,9 @@ const bodyEl = document.body;
 const defaultBg = getComputedStyle(bodyEl).backgroundColor;
 
 const isIOS = /iP(ad|hone|od)/i.test(navigator.userAgent);
-const hasSensorAPI = 'LinearAccelerationSensor' in window;
+const ACTIVE_SENSOR = isIOS ? SENSOR_TYPES.IOS : SENSOR_TYPES.ANDROID;
+const hasSensorAPI =
+  ACTIVE_SENSOR === SENSOR_TYPES.ANDROID && 'LinearAccelerationSensor' in window;
 
 let permissionGranted = false;
 let capturing = false;
@@ -335,7 +338,7 @@ function startSensorListener() {
   if (sensorListening) return;
   window.addEventListener('devicemotion', processMotion, { passive: true });
   window.addEventListener('deviceorientation', handleOrientation);
-  if (hasSensorAPI) {
+  if (ACTIVE_SENSOR === SENSOR_TYPES.ANDROID && hasSensorAPI) {
     accelSensor = new LinearAccelerationSensor({ frequency: 60 });
     accelSensor.addEventListener('reading', handleSensorReading);
     accelSensor.start();
