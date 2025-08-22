@@ -57,6 +57,8 @@ class SensorController {
         options: {
           animation: false,
           responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: 4 / 3,
           scales: {
             x: { display: false },
             y: { suggestedMin: -10, suggestedMax: 10 }
@@ -69,10 +71,19 @@ class SensorController {
   init3DScene() {
     const canvas = document.getElementById('chart-3d');
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    this.camera = new THREE.PerspectiveCamera(45, 4 / 3, 0.1, 1000);
     this.camera.position.z = 5;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    this.renderer.setSize(canvas.clientWidth || 300, canvas.clientHeight || 300);
+    const width = canvas.clientWidth || 300;
+    const height = (width * 3) / 4;
+    this.renderer.setSize(width, height);
+    window.addEventListener('resize', () => {
+      const newWidth = canvas.clientWidth;
+      const newHeight = (newWidth * 3) / 4;
+      this.renderer.setSize(newWidth, newHeight);
+      this.camera.aspect = newWidth / newHeight;
+      this.camera.updateProjectionMatrix();
+    });
     const geometry = new THREE.BoxGeometry(1, 2, 0.1);
     const material = new THREE.MeshNormalMaterial();
     this.cube = new THREE.Mesh(geometry, material);
