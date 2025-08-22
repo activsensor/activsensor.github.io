@@ -5,9 +5,17 @@ import {
   rsi,
   summarizeSeries,
 } from './JumpMetrics.js';
+import {
+  TAP_THRESHOLD,
+  TAP_WINDOW,
+  TAP_COOLDOWN,
+  NOISE_FLOOR,
+  NOISE_FLOOR_Y,
+} from './settings.js';
 
 const permBtn = document.getElementById('perm-btn');
 const dotEl = document.getElementById('dot');
+const yValueEl = document.getElementById('y-value');
 const resultsDiv = document.getElementById('results');
 const countdownEl = document.getElementById('countdown');
 const ledEl = document.getElementById('sensor-led');
@@ -28,12 +36,6 @@ let accelSensor;
 let lastTapTs = 0;
 let nextTapAllowedAt = 0;
 let sensorListening = false;
-
-const TAP_THRESHOLD = 15; // m/s^2 above gravity
-const TAP_WINDOW = 400; // max ms between taps
-const TAP_COOLDOWN = 3000; // ms to wait before next double tap
-const NOISE_FLOOR = 0.1; // m/s^2 filter to ignore noise on X/Z
-const NOISE_FLOOR_Y = 3; // only keep Y values greater than this
 
 function dotProd(a, b) {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -317,6 +319,7 @@ function processMotion(ev) {
   const acc = ev.accelerationIncludingGravity || ev.acceleration || {};
   const now = ev.timeStamp;
   const f = filterNoise(acc.x || 0, acc.y || 0, acc.z || 0);
+  yValueEl.textContent = f.ay.toFixed(2);
   checkTap(f, now);
   if (capturing && !hasSensorAPI) {
     motionData.push({ t: now, ax: f.ax, ay: f.ay, az: f.az });
@@ -348,6 +351,7 @@ function handleSensorReading() {
     accelSensor?.z || 0
   );
   const now = performance.now();
+  yValueEl.textContent = f.ay.toFixed(2);
   checkTap(f, now);
   if (capturing) {
     motionData.push({ t: now, ax: f.ax, ay: f.ay, az: f.az });
